@@ -1,0 +1,12 @@
+{
+  "name": "uia-economy",
+  "version": "1.0.0",
+  "description": "Unity Internal Agency school economy system",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

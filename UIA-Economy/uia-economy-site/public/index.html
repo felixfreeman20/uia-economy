@@ -1,0 +1,277 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UIA Economy</title>
+<style>
+body{
+    margin:0;
+    font-family:Arial, sans-serif;
+    background:#0b1020;
+    color:white;
+}
+header{
+    background:#121a33;
+    padding:20px;
+    border-bottom:2px solid #5d7dff;
+}
+h1{
+    margin:0;
+}
+.container{
+    padding:20px;
+}
+.grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+    gap:20px;
+}
+.card{
+    background:#151f3f;
+    padding:20px;
+    border-radius:14px;
+    border:1px solid #293b7a;
+}
+button{
+    background:#5d7dff;
+    color:white;
+    border:none;
+    padding:10px 14px;
+    border-radius:8px;
+    cursor:pointer;
+}
+input, select{
+    width:100%;
+    padding:10px;
+    margin-top:8px;
+    margin-bottom:12px;
+    border-radius:8px;
+    border:none;
+}
+.balance{
+    font-size:32px;
+    font-weight:bold;
+    color:#8ef5a4;
+}
+.log{
+    background:#0d1429;
+    padding:10px;
+    border-radius:8px;
+    max-height:220px;
+    overflow:auto;
+}
+.market-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:10px;
+    padding:10px;
+    background:#1c2950;
+    border-radius:8px;
+}
+.badge{
+    display:inline-block;
+    background:#304db8;
+    padding:4px 10px;
+    border-radius:999px;
+    font-size:12px;
+}
+</style>
+</head>
+<body>
+
+<header>
+<h1>UIA Economy Network</h1>
+<p>Unity's Internal Agency</p>
+</header>
+
+<div class="container">
+
+<div class="grid">
+
+<div class="card">
+<h2>Wallet</h2>
+<div class="balance" id="balance">1000 Vox</div>
+<p>Citizen ID: U-1042</p>
+<button onclick="daily()">Claim Daily Reward</button>
+</div>
+
+<div class="card">
+<h2>Transfer Vox</h2>
+<input id="user" placeholder="Send to user">
+<input id="amount" type="number" placeholder="Amount">
+<button onclick="transfer()">Transfer</button>
+</div>
+
+<div class="card">
+<h2>Jobs</h2>
+<select id="jobSelect">
+<option value="50">Snack Delivery - 50 Vox</option>
+<option value="80">Homework Assistant - 80 Vox</option>
+<option value="120">Market Analyst - 120 Vox</option>
+<option value="200">UIA Agent - 200 Vox</option>
+</select>
+<button onclick="work()">Complete Job</button>
+</div>
+
+<div class="card">
+<h2>Bank</h2>
+<p>Savings Interest: 5%</p>
+<button onclick="invest()">Deposit 100 Vox</button>
+<button onclick="withdraw()">Withdraw 105 Vox</button>
+</div>
+
+<div class="card">
+<h2>Snack Market</h2>
+
+<div class="market-item">
+<span>Chips</span>
+<button onclick="buy(25,'Chips')">25 Vox</button>
+</div>
+
+<div class="market-item">
+<span>Energy Drink</span>
+<button onclick="buy(40,'Energy Drink')">40 Vox</button>
+</div>
+
+<div class="market-item">
+<span>Candy</span>
+<button onclick="buy(15,'Candy')">15 Vox</button>
+</div>
+
+</div>
+
+<div class="card">
+<h2>Casino</h2>
+<p>50/50 chance.</p>
+<button onclick="gamble()">Bet 100 Vox</button>
+</div>
+
+<div class="card">
+<h2>Investments</h2>
+<div class="market-item">
+<span>Nova Snacks Co.</span>
+<span class="badge">+12%</span>
+</div>
+<div class="market-item">
+<span>Hallway Traders</span>
+<span class="badge">-4%</span>
+</div>
+<button onclick="stocks()">Invest 200 Vox</button>
+</div>
+
+<div class="card">
+<h2>UIA News</h2>
+<div class="log" id="news">
+<div>• New snack market opened.</div>
+<div>• Taxes lowered to 2%.</div>
+<div>• Richest citizen: ToastyPixels</div>
+</div>
+</div>
+
+<div class="card">
+<h2>Transaction Log</h2>
+<div class="log" id="log"></div>
+</div>
+
+</div>
+</div>
+
+<script>
+let balance = 1000;
+let savings = 0;
+
+function update(){
+    document.getElementById('balance').innerText = balance + ' Vox';
+}
+
+function log(text){
+    const div = document.createElement('div');
+    div.innerText = "• " + text;
+    document.getElementById('log').prepend(div);
+}
+
+function transfer(){
+    let user = document.getElementById('user').value;
+    let amount = parseInt(document.getElementById('amount').value);
+
+    if(amount > 0 && amount <= balance){
+        balance -= amount;
+        update();
+        log("Transferred " + amount + " Vox to " + user);
+    }
+}
+
+function work(){
+    let reward = parseInt(document.getElementById('jobSelect').value);
+    balance += reward;
+    update();
+    log("Completed a job and earned " + reward + " Vox");
+}
+
+function buy(price,item){
+    if(balance >= price){
+        balance -= price;
+        update();
+        log("Bought " + item + " for " + price + " Vox");
+    }
+}
+
+function gamble(){
+    if(balance >= 100){
+        balance -= 100;
+
+        if(Math.random() > 0.5){
+            balance += 250;
+            log("Casino WIN! +250 Vox");
+        }else{
+            log("Casino loss. -100 Vox");
+        }
+
+        update();
+    }
+}
+
+function invest(){
+    if(balance >= 100){
+        balance -= 100;
+        savings += 105;
+        update();
+        log("Deposited 100 Vox into savings");
+    }
+}
+
+function withdraw(){
+    if(savings >= 105){
+        savings -= 105;
+        balance += 105;
+        update();
+        log("Withdrew 105 Vox from savings");
+    }
+}
+
+function stocks(){
+    if(balance >= 200){
+        balance -= 200;
+
+        let gain = Math.floor(Math.random()*300);
+        balance += gain;
+
+        log("Stock investment returned " + gain + " Vox");
+        update();
+    }
+}
+
+function daily(){
+    balance += 50;
+    update();
+    log("Claimed daily reward (+50 Vox)");
+}
+
+update();
+</script>
+
+</body>
+</html>
