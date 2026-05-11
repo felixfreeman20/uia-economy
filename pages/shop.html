@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VOX — Shop</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .shop-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(270px,1fr)); }
+    .listing-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1.2rem; display: flex; flex-direction: column; gap: 0.5rem; transition: all 0.2s;
+    }
+    .listing-card:hover { border-color: rgba(124,92,252,0.3); transform: translateY(-2px); }
+    .listing-card.sold { opacity: 0.5; }
+    .listing-title { font-weight: 700; font-size: 1rem; }
+    .listing-desc { color: var(--muted); font-size: 0.85rem; flex: 1; }
+    .listing-meta { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+    .listing-price { font-family: 'DM Mono', monospace; color: var(--gold); font-size: 1.1rem; font-weight: 500; }
+    .listing-seller { font-size: 0.78rem; color: var(--muted); }
+    .cat-badge { margin-bottom: 0.25rem; }
+    .filters { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .filter-btn { padding: 0.35rem 0.9rem; border-radius: 20px; border: 1px solid var(--border);
+      background: transparent; color: var(--muted); cursor: pointer; font-family:'Syne',sans-serif;
+      font-size:0.8rem; font-weight: 600; transition: all 0.15s; }
+    .filter-btn.active, .filter-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .tab-row { display: flex; gap: 0; margin-bottom: 1.5rem; background: var(--bg2); border-radius: 8px; padding: 3px; max-width: 400px; }
+    .tab { flex: 1; text-align: center; padding: 0.5rem; border-radius: 6px; cursor: pointer; font-weight: 700;
+      font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); transition: all 0.2s; }
+    .tab.active { background: var(--accent); color: #fff; }
+  </style>
+</head>
+<body>
+<main>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:0.25rem">
+    <h1 class="page-title" style="margin:0">Marketplace</h1>
+    <button class="btn btn-primary" onclick="showSection('list')">+ List Item</button>
+  </div>
+  <p class="page-sub">Buy and sell real stuff, services, or anything else.</p>
+
+  <div class="tab-row">
+    <div class="tab active" onclick="showSection('browse')">Browse</div>
+    <div class="tab" onclick="showSection('mine')">My Listings</div>
+    <div class="tab" onclick="showSection('list')">New Listing</div>
+  </div>
+
+  <!-- BROWSE -->
+  <div id="sec-browse">
+    <div class="filters" id="cat-filters">
+      <button class="filter-btn active" onclick="filterCat('all',this)">All</button>
+      <button class="filter-btn" onclick="filterCat('service',this)">Services</button>
+      <button class="filter-btn" onclick="filterCat('item',this)">Items</button>
+      <button class="filter-btn" onclick="filterCat('food',this)">Food</button>
+      <button class="filter-btn" onclick="filterCat('digital',this)">Digital</button>
+      <button class="filter-btn" onclick="filterCat('other',this)">Other</button>
+    </div>
+    <div id="msg-buy"></div>
+    <div class="shop-grid" id="shop-grid"></div>
+  </div>
+
+  <!-- MY LISTINGS -->
+  <div id="sec-mine" style="display:none">
+    <div id="msg-mine"></div>
+    <div class="shop-grid" id="mine-grid"></div>
+  </div>
+
+  <!-- NEW LISTING -->
+  <div id="sec-list" style="display:none">
+    <div class="card fade-in" style="max-width:520px">
+      <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:1.2rem">List Something</h2>
+      <div class="form-group">
+        <label>Title</label>
+        <input id="l-title" type="text" placeholder="What are you selling?" maxlength="60">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="l-desc" placeholder="Describe it — include any conditions, delivery method, etc."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="l-cat">
+          <option value="service">Service</option>
+          <option value="item">Physical Item</option>
+          <option value="food">Food / Drink</option>
+          <option value="digital">Digital</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Price (VOX)</label>
+        <input id="l-price" type="number" placeholder="50" min="1">
+      </div>
+      <div id="msg-list"></div>
+      <button class="btn btn-primary w-full" onclick="doList()">Publish Listing →</button>
+    </div>
+  </div>
+</main>
+
+<script src="../js/core.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+  const me = VOX.requireLogin("../index.html");
+  buildNav("shop.html");
+
+  const CATS = { service:"🔧 Service", item:"📦 Item", food:"🍔 Food", digital:"💾 Digital", other:"✦ Other" };
+  let currentCat = "all";
+
+  function showSection(s) {
+    ["browse","mine","list"].forEach(id => {
+      document.getElementById("sec-"+id).style.display = id===s ? "" : "none";
+    });
+    document.querySelectorAll(".tab").forEach((t,i) => {
+      t.classList.toggle("active", ["browse","mine","list"][i] === s);
+    });
+    if (s === "browse") renderShop();
+    if (s === "mine") renderMine();
+  }
+
+  function filterCat(cat, el) {
+    currentCat = cat;
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    el.classList.add("active");
+    renderShop();
+  }
+
+  function catBadge(cat) {
+    const colors = { service:"badge-purple", item:"badge-gold", food:"badge-green", digital:"badge-red", other:"" };
+    return `<span class="badge ${colors[cat]||''}">${CATS[cat]||cat}</span>`;
+  }
+
+  function renderShop() {
+    const all = VOX.shopListings().filter(i => !i.sold && i.sellerId !== me.id);
+    const filtered = currentCat === "all" ? all : all.filter(i => i.category === currentCat);
+    const grid = document.getElementById("shop-grid");
+    if (!filtered.length) {
+      grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">🛍</div>Nothing here yet.</div>`;
+      return;
+    }
+    grid.innerHTML = filtered.map(item => `
+      <div class="listing-card fade-in">
+        <div class="cat-badge">${catBadge(item.category)}</div>
+        <div class="listing-title">${item.title}</div>
+        <div class="listing-desc">${item.description}</div>
+        <div style="font-size:0.78rem;color:var(--muted)">by ${item.sellerId}</div>
+        <div class="listing-meta">
+          <div class="listing-price">⬡ ${VOX.fmt(item.price)}</div>
+          <button class="btn btn-gold btn-sm" onclick="doBuy(${item.id})">Buy</button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function renderMine() {
+    const mine = VOX.shopListings().filter(i => i.sellerId === me.id);
+    const grid = document.getElementById("mine-grid");
+    if (!mine.length) {
+      grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">📋</div>You haven't listed anything yet.</div>`;
+      return;
+    }
+    grid.innerHTML = mine.map(item => `
+      <div class="listing-card ${item.sold?'sold':''}">
+        <div>${catBadge(item.category)} ${item.sold?'<span class="badge badge-red">SOLD</span>':''}</div>
+        <div class="listing-title">${item.title}</div>
+        <div class="listing-desc">${item.description}</div>
+        <div class="listing-meta">
+          <div class="listing-price">⬡ ${VOX.fmt(item.price)}</div>
+          ${!item.sold ? `<button class="btn btn-danger btn-sm" onclick="doDelete(${item.id})">Remove</button>` : ""}
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function doBuy(id) {
+    const res = VOX.buyItem(me.id, id);
+    const msg = document.getElementById("msg-buy");
+    msg.innerHTML = `<div class="alert alert-${res.ok?'success':'error'}">${res.ok ? "Purchased! Contact the seller to arrange delivery." : res.msg}</div>`;
+    setTimeout(() => msg.innerHTML = "", 4000);
+    if (res.ok) { renderShop(); refreshNavBalance(); }
+  }
+
+  function doDelete(id) {
+    if (!confirm("Remove this listing?")) return;
+    VOX.deleteItem(id, me.id);
+    renderMine();
+  }
+
+  function doList() {
+    const title = document.getElementById("l-title").value.trim();
+    const desc = document.getElementById("l-desc").value.trim();
+    const cat = document.getElementById("l-cat").value;
+    const price = parseInt(document.getElementById("l-price").value);
+    const msg = document.getElementById("msg-list");
+    if (!title) return msg.innerHTML = `<div class="alert alert-error">Enter a title.</div>`;
+    if (!price || price < 1) return msg.innerHTML = `<div class="alert alert-error">Enter a valid price.</div>`;
+    VOX.listItem(me.id, title, desc, price, cat);
+    msg.innerHTML = `<div class="alert alert-success">Listed! 🎉</div>`;
+    document.getElementById("l-title").value = "";
+    document.getElementById("l-desc").value = "";
+    document.getElementById("l-price").value = "";
+    setTimeout(() => { msg.innerHTML=""; showSection("browse"); }, 1500);
+  }
+
+  renderShop();
+</script>
+</body>
+</html>
