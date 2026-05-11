@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VOX — Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .balance-hero {
+      background: linear-gradient(135deg, #1a0d3e 0%, #0d1a2e 100%);
+      border: 1px solid rgba(124,92,252,0.3);
+      border-radius: 16px; padding: 2.5rem; text-align: center;
+      position: relative; overflow: hidden; margin-bottom: 1.5rem;
+    }
+    .balance-hero::before {
+      content: '◈'; position: absolute; font-size: 12rem; opacity: 0.05;
+      right: -2rem; top: -2rem; color: var(--accent); line-height: 1;
+    }
+    .balance-label { text-transform: uppercase; letter-spacing: 0.15em; color: var(--muted); font-size: 0.8rem; margin-bottom: 0.5rem; }
+    .balance-number {
+      font-family: 'DM Mono', monospace; font-size: clamp(2.5rem, 8vw, 4.5rem);
+      font-weight: 500; color: var(--gold); line-height: 1; letter-spacing: -2px;
+    }
+    .balance-unit { font-size: 1.2rem; color: var(--muted); margin-left: 0.3rem; }
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1rem; text-align: center; }
+    .stat-val { font-family: 'DM Mono', monospace; font-size: 1.4rem; color: var(--text); }
+    .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-top: 0.25rem; }
+    .tx-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid rgba(42,42,62,0.5); }
+    .tx-row:last-child { border-bottom: none; }
+    .tx-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-size: 1rem; flex-shrink: 0; }
+    .tx-in { background: rgba(92,252,184,0.15); }
+    .tx-out { background: rgba(252,92,125,0.15); }
+    .tx-info { flex: 1; }
+    .tx-name { font-weight: 600; font-size: 0.9rem; }
+    .tx-note { font-size: 0.78rem; color: var(--muted); }
+    .tx-amount { font-family: 'DM Mono', monospace; font-weight: 500; }
+    .tx-amount.in { color: var(--accent3); }
+    .tx-amount.out { color: var(--accent2); }
+    .quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
+    .quick-btn { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; padding: 1.2rem;
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      cursor: pointer; text-decoration: none; color: var(--text); transition: all 0.2s; }
+    .quick-btn:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .quick-icon { font-size: 1.8rem; }
+    .quick-label { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  </style>
+</head>
+<body>
+<main>
+  <div class="balance-hero glow-pulse" id="balance-hero">
+    <div class="balance-label" id="greet">Loading...</div>
+    <div class="balance-number" id="balance-num">—</div>
+    <div style="color:var(--muted);margin-top:0.3rem;font-size:0.9rem">VOX in your wallet</div>
+  </div>
+
+  <div class="stats-row" id="stats-row">
+    <div class="stat"><div class="stat-val" id="s-sent">—</div><div class="stat-label">Sent</div></div>
+    <div class="stat"><div class="stat-val" id="s-recv">—</div><div class="stat-label">Received</div></div>
+    <div class="stat"><div class="stat-val" id="s-rank">—</div><div class="stat-label">Rank</div></div>
+  </div>
+
+  <div class="quick-actions">
+    <a href="send.html" class="quick-btn"><span class="quick-icon">↗</span><span class="quick-label">Send Vox</span></a>
+    <a href="shop.html" class="quick-btn"><span class="quick-icon">🛍</span><span class="quick-label">Shop</span></a>
+    <a href="gamble.html" class="quick-btn"><span class="quick-icon">🎲</span><span class="quick-label">Gamble</span></a>
+    <a href="leaderboard.html" class="quick-btn"><span class="quick-icon">🏆</span><span class="quick-label">Rich List</span></a>
+  </div>
+
+  <div class="card fade-in">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+      <h2 style="font-size:1rem;font-weight:700">Recent Transactions</h2>
+    </div>
+    <div id="tx-list"><div class="spinner"></div></div>
+  </div>
+</main>
+
+<script src="../js/core.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+  const user = VOX.requireLogin("../index.html");
+  buildNav("dashboard.html");
+
+  function relTime(ts) {
+    const d = Date.now() - ts, m = 60000, h = 3600000, day = 86400000;
+    if (d < m) return "just now";
+    if (d < h) return Math.floor(d/m) + "m ago";
+    if (d < day) return Math.floor(d/h) + "h ago";
+    return Math.floor(d/day) + "d ago";
+  }
+
+  function load() {
+    const u = VOX.refreshUser();
+    document.getElementById("greet").textContent = `${u.avatar}  ${u.username}'s Wallet`;
+    document.getElementById("balance-num").textContent = VOX.fmt(u.balance);
+
+    const txs = VOX.txHistory(u.id, 50);
+    let sent = 0, recv = 0;
+    txs.forEach(t => {
+      if (t.from === u.id) sent += t.amount;
+      if (t.to === u.id) recv += t.amount;
+    });
+    document.getElementById("s-sent").textContent = VOX.fmt(sent);
+    document.getElementById("s-recv").textContent = VOX.fmt(recv);
+
+    const lb = VOX.leaderboard();
+    const rank = lb.findIndex(x => x.id === u.id) + 1;
+    document.getElementById("s-rank").textContent = rank > 0 ? "#" + rank : "—";
+
+    const list = document.getElementById("tx-list");
+    if (!txs.length) { list.innerHTML = `<div class="empty"><div class="empty-icon">💸</div>No transactions yet.</div>`; return; }
+
+    list.innerHTML = txs.slice(0,20).map(t => {
+      const isIn = t.to === u.id;
+      const other = isIn ? t.from : t.to;
+      const displayOther = other === "MINT" ? "🪙 Mint" : other === "GAMBLE_WIN" ? "🎰 Casino Win" : other === "GAMBLE_LOSE" ? "🎰 Casino" : other === "BURN" ? "🔥 Burn" : other;
+      return `<div class="tx-row">
+        <div class="tx-icon ${isIn ? 'tx-in' : 'tx-out'}">${isIn ? '↙' : '↗'}</div>
+        <div class="tx-info">
+          <div class="tx-name">${displayOther}</div>
+          <div class="tx-note">${t.note || ''} · ${relTime(t.ts)}</div>
+        </div>
+        <div class="tx-amount ${isIn ? 'in' : 'out'}">${isIn ? '+' : '-'}${VOX.fmt(t.amount)} VOX</div>
+      </div>`;
+    }).join("");
+  }
+
+  load();
+</script>
+</body>
+</html>
