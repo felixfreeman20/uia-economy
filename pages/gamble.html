@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VOX — Gamble</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .game-tabs{display:flex;gap:0.5rem;margin-bottom:2rem;flex-wrap:wrap}
+    .game-tab{padding:0.6rem 1.2rem;border-radius:20px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-weight:700;font-size:0.85rem;color:var(--muted);transition:all 0.2s}
+    .game-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .game-panel{display:none}.game-panel.active{display:block}
+    .game-card{max-width:540px;margin:0 auto}
+    .coin-wrap{display:flex;justify-content:center;margin:2rem 0;perspective:600px}
+    .coin{width:120px;height:120px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:3rem;border:4px solid var(--gold);box-shadow:0 0 30px rgba(255,209,102,0.4)}
+    .coin.heads{background:radial-gradient(circle,#2d2010,#1a1008)}
+    .coin.tails{background:radial-gradient(circle,#0d1a20,#081018)}
+    .result-big{font-size:2rem;text-align:center;margin:1rem 0;min-height:3rem}
+    .qbet{padding:0.25rem 0.7rem;border-radius:6px;border:1px solid var(--border);background:var(--bg2);cursor:pointer;font-size:0.8rem;font-family:'DM Mono',monospace;color:var(--muted);transition:all 0.15s;display:inline-block}
+    .qbet:hover{border-color:var(--gold);color:var(--gold)}
+    .quick-bets{display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem}
+    .slot-machine{background:linear-gradient(135deg,#1a0d3e,#0d1a2e);border:2px solid rgba(124,92,252,0.4);border-radius:20px;padding:2rem;text-align:center;margin:1.5rem 0}
+    .reels{display:flex;justify-content:center;gap:0.5rem;margin-bottom:1.5rem}
+    .reel{width:80px;height:80px;background:var(--bg);border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:2.5rem}
+    .reel.spinning{animation:reel-blur 0.15s linear infinite}
+    @keyframes reel-blur{0%,100%{filter:blur(0)}50%{filter:blur(4px);transform:scale(0.95)}}
+    .payline{display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;font-size:0.78rem;color:var(--muted)}
+    .payline span{background:var(--bg2);border:1px solid var(--border);padding:0.2rem 0.5rem;border-radius:4px}
+    .card-table{background:linear-gradient(135deg,#0a1a10,#051008);border:2px solid rgba(92,252,184,0.2);border-radius:20px;padding:2rem;text-align:center;margin:1.5rem 0}
+    .playing-card{width:90px;height:130px;border-radius:10px;border:2px solid var(--border);display:inline-flex;align-items:center;justify-content:center;flex-direction:column;background:var(--bg);margin:0.5rem;position:relative}
+    .playing-card .rank{font-size:0.85rem;font-weight:700;font-family:'DM Mono',monospace;position:absolute;top:6px;left:8px}
+    .playing-card .suit{font-size:2rem}
+    .playing-card.red{color:#fc5c7d}
+    .playing-card.hidden{background:linear-gradient(135deg,#1a0d3e,#0d1a2e)}
+    .playing-card.winner{box-shadow:0 0 20px rgba(92,252,184,0.5);border-color:var(--accent3)}
+    .cards-row{display:flex;align-items:center;justify-content:center;margin:1rem 0}
+    .player-side{text-align:center}
+    .player-label{font-size:0.8rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.5rem}
+    .vs-divider{font-size:1.5rem;font-weight:800;color:var(--muted);margin:0 1rem}
+  </style>
+</head>
+<body>
+<main>
+  <h1 class="page-title">The Casino</h1>
+  <p class="page-sub">Risk it all. Fortune favours the bold.</p>
+
+  <div class="game-tabs">
+    <div class="game-tab active" onclick="switchGame('coin')">🪙 Coinflip</div>
+    <div class="game-tab" onclick="switchGame('coinpvp')">⚔️ Coinflip PvP</div>
+    <div class="game-tab" onclick="switchGame('slots')">🎰 Slots</div>
+    <div class="game-tab" onclick="switchGame('cards')">🃏 Card War</div>
+  </div>
+
+  <!-- SOLO COIN -->
+  <div id="game-coin" class="game-panel active">
+    <div class="game-card card fade-in">
+      <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem">Solo Coinflip</h2>
+      <p class="text-muted text-sm mb-2">50/50 against the house. Double or nothing.</p>
+      <div class="coin-wrap"><div class="coin heads" id="coin-face">🪙</div></div>
+      <div class="result-big" id="coin-result"></div>
+      <div class="form-group">
+        <label>Wager (VOX)</label>
+        <input type="number" id="coin-wager" min="1" placeholder="e.g. 50">
+        <div class="quick-bets">
+          <span class="qbet" onclick="setW('coin-wager',10)">10</span>
+          <span class="qbet" onclick="setW('coin-wager',50)">50</span>
+          <span class="qbet" onclick="setW('coin-wager',100)">100</span>
+          <span class="qbet" onclick="setW('coin-wager','half')">Half</span>
+          <span class="qbet" onclick="setW('coin-wager','all')">All in</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem">
+        <button class="btn btn-gold w-full" onclick="flipCoin('heads')" id="heads-btn">Heads</button>
+        <button class="btn btn-primary w-full" onclick="flipCoin('tails')" id="tails-btn">Tails</button>
+      </div>
+      <div id="coin-msg"></div>
+      <div class="text-muted text-sm">Balance: <span class="mono" id="coin-bal">—</span> VOX</div>
+    </div>
+  </div>
+
+  <!-- PvP COIN -->
+  <div id="game-coinpvp" class="game-panel">
+    <div class="game-card card fade-in">
+      <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem">Coinflip vs Friend</h2>
+      <p class="text-muted text-sm mb-2">You pick heads or tails. Winner takes the wager from the loser.</p>
+      <div class="form-group"><label>Opponent</label><select id="pvp-opponent"><option value="">— loading —</option></select></div>
+      <div class="form-group">
+        <label>Wager (VOX each)</label>
+        <input type="number" id="pvp-wager" min="1" placeholder="e.g. 100">
+        <div class="quick-bets">
+          <span class="qbet" onclick="document.getElementById('pvp-wager').value=10">10</span>
+          <span class="qbet" onclick="document.getElementById('pvp-wager').value=50">50</span>
+          <span class="qbet" onclick="document.getElementById('pvp-wager').value=100">100</span>
+        </div>
+      </div>
+      <div class="coin-wrap"><div class="coin heads" id="pvp-coin">🪙</div></div>
+      <div class="result-big" id="pvp-result"></div>
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem">
+        <button class="btn btn-gold w-full" onclick="pvpFlip('heads')" id="pvp-heads">I pick Heads</button>
+        <button class="btn btn-primary w-full" onclick="pvpFlip('tails')" id="pvp-tails">I pick Tails</button>
+      </div>
+      <div id="pvp-msg"></div>
+    </div>
+  </div>
+
+  <!-- SLOTS -->
+  <div id="game-slots" class="game-panel">
+    <div class="game-card card fade-in">
+      <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem">Slot Machine</h2>
+      <div class="slot-machine">
+        <div class="reels">
+          <div class="reel" id="r0">❓</div>
+          <div class="reel" id="r1">❓</div>
+          <div class="reel" id="r2">❓</div>
+        </div>
+        <div class="payline">
+          <span>💎💎💎 = 10×</span><span>7️⃣7️⃣7️⃣ = 5×</span><span>🍒🍒🍒 = 3×</span>
+          <span>Any 3 match = 2×</span><span>2 match = 1.5×</span><span>No match = lose</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Bet (VOX)</label>
+        <input type="number" id="slot-wager" min="1" placeholder="e.g. 20">
+        <div class="quick-bets">
+          <span class="qbet" onclick="document.getElementById('slot-wager').value=10">10</span>
+          <span class="qbet" onclick="document.getElementById('slot-wager').value=25">25</span>
+          <span class="qbet" onclick="document.getElementById('slot-wager').value=50">50</span>
+        </div>
+      </div>
+      <div class="result-big" id="slot-result"></div>
+      <button class="btn btn-primary w-full" id="spin-btn" onclick="doSpin()" style="font-size:1.1rem;padding:0.8rem">🎰 SPIN</button>
+      <div id="slot-msg" class="mt-2"></div>
+      <div class="text-muted text-sm mt-1">Balance: <span class="mono" id="slot-bal">—</span> VOX</div>
+    </div>
+  </div>
+
+  <!-- CARD WAR -->
+  <div id="game-cards" class="game-panel">
+    <div class="game-card card fade-in">
+      <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem">Card War vs Friend</h2>
+      <p class="text-muted text-sm mb-2">Each player draws a card. Higher card wins the pot.</p>
+      <div class="form-group"><label>Opponent</label><select id="card-opponent"><option value="">— loading —</option></select></div>
+      <div class="form-group">
+        <label>Wager (VOX each)</label>
+        <input type="number" id="card-wager" min="1" placeholder="e.g. 50">
+        <div class="quick-bets">
+          <span class="qbet" onclick="document.getElementById('card-wager').value=25">25</span>
+          <span class="qbet" onclick="document.getElementById('card-wager').value=50">50</span>
+          <span class="qbet" onclick="document.getElementById('card-wager').value=100">100</span>
+        </div>
+      </div>
+      <div class="card-table" id="card-table" style="display:none">
+        <div class="cards-row">
+          <div class="player-side">
+            <div class="player-label" id="my-label">You</div>
+            <div id="my-card" class="playing-card hidden"><div class="suit">🂠</div></div>
+          </div>
+          <div class="vs-divider">VS</div>
+          <div class="player-side">
+            <div class="player-label" id="opp-label">Opponent</div>
+            <div id="opp-card" class="playing-card hidden"><div class="suit">🂠</div></div>
+          </div>
+        </div>
+        <div class="result-big" id="card-result"></div>
+      </div>
+      <button class="btn btn-success w-full" id="draw-btn" onclick="doCardWar()">Draw Cards ⚔️</button>
+      <div id="card-msg" class="mt-2"></div>
+      <div class="text-muted text-sm mt-1">Balance: <span class="mono" id="card-bal">—</span> VOX</div>
+    </div>
+  </div>
+</main>
+
+<script src="../js/core.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+  const me = VOX.requireLogin();
+  let myBalance = 0;
+  const COIN_FACES = {heads:"🌟",tails:"🌙"};
+  const SYMBOLS = ["🍒","🍋","🔔","💎","7️⃣","⭐","🎯","🃏"];
+  const JACKPOTS = {"💎💎💎":10,"7️⃣7️⃣7️⃣":5,"🍒🍒🍒":3};
+  const RANKS = ["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
+  const SUITS = ["♠","♥","♦","♣"];
+  let busy = false;
+
+  VOX.init().then(async () => {
+    buildNav("gamble.html");
+    const u = await VOX.refreshUser();
+    myBalance = u.balance;
+    updateBals(u.balance);
+    VOX.onUsers(users => {
+      const me2=users.find(x=>x.id===u.id);
+      if(me2){myBalance=me2.balance;updateBals(me2.balance);}
+    });
+    const all = await VOX.allUsers();
+    const others = all.filter(x=>x.id!==u.id&&!x.isAdmin);
+    const opts = others.map(x=>`<option value="${x.id}">${x.avatar} ${x.username}</option>`).join("");
+    document.getElementById("pvp-opponent").innerHTML = `<option value="">— select —</option>${opts}`;
+    document.getElementById("card-opponent").innerHTML = `<option value="">— select —</option>${opts}`;
+  });
+
+  function updateBals(b){["coin-bal","slot-bal","card-bal"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=VOX.fmt(b);});}
+  function switchGame(id){document.querySelectorAll(".game-panel").forEach(p=>p.classList.remove("active"));document.querySelectorAll(".game-tab").forEach(t=>t.classList.remove("active"));document.getElementById("game-"+id).classList.add("active");const idx=["coin","coinpvp","slots","cards"].indexOf(id);document.querySelectorAll(".game-tab")[idx].classList.add("active");}
+  function setMsg(id,msg,type){document.getElementById(id).innerHTML=msg?`<div class="alert alert-${type}">${msg}</div>`:""; if(msg&&type==="success"||type==="error")setTimeout(()=>{const el=document.getElementById(id);if(el)el.innerHTML="";},5000);}
+  function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+  function setW(id,v){if(v==="half")v=Math.floor(myBalance/2);else if(v==="all")v=myBalance;document.getElementById(id).value=v;}
+
+  // ── SOLO COINFLIP ──
+  async function flipCoin(pick) {
+    if(busy)return;
+    const wager=parseInt(document.getElementById("coin-wager").value);
+    if(!wager||wager<1)return setMsg("coin-msg","Enter a wager.","error");
+    if(wager>myBalance)return setMsg("coin-msg","Not enough Vox.","error");
+    busy=true;
+    document.getElementById("heads-btn").disabled=true;document.getElementById("tails-btn").disabled=true;
+    const face=document.getElementById("coin-face");
+    document.getElementById("coin-result").innerHTML="";
+    face.className="coin coin-spin";face.textContent="🪙";
+    await sleep(1600);
+    const result=Math.random()<0.5?"heads":"tails";
+    const won=result===pick;
+    face.className="coin "+result;face.textContent=COIN_FACES[result];
+    const res=await VOX.gambleResult(me.id,wager,won);
+    if(!res.ok){setMsg("coin-msg",res.msg,"error");}
+    else{
+      document.getElementById("coin-result").innerHTML=won
+        ?`🎉 <strong>${result.toUpperCase()}!</strong> +<span class="vox-amount">${VOX.fmt(wager)} VOX</span>`
+        :`💀 <strong>${result.toUpperCase()}</strong> — lost <span style="color:var(--accent2)">${VOX.fmt(wager)} VOX</span>`;
+    }
+    busy=false;
+    document.getElementById("heads-btn").disabled=false;document.getElementById("tails-btn").disabled=false;
+  }
+
+  // ── PvP COINFLIP ──
+  async function pvpFlip(myPick) {
+    if(busy)return;
+    const oppId=document.getElementById("pvp-opponent").value;
+    const wager=parseInt(document.getElementById("pvp-wager").value);
+    if(!oppId)return setMsg("pvp-msg","Select an opponent.","error");
+    if(!wager||wager<1)return setMsg("pvp-msg","Enter a wager.","error");
+    busy=true;
+    document.getElementById("pvp-heads").disabled=true;document.getElementById("pvp-tails").disabled=true;
+    const coin=document.getElementById("pvp-coin");
+    coin.className="coin coin-spin";coin.textContent="🪙";
+    document.getElementById("pvp-result").innerHTML="";
+    await sleep(1600);
+    const result=Math.random()<0.5?"heads":"tails";
+    const iWon=result===myPick;
+    coin.className="coin "+result;coin.textContent=COIN_FACES[result];
+    const winnerId=iWon?me.id:oppId,loserId=iWon?oppId:me.id;
+    const res=await VOX.pvpGamble(winnerId,loserId,wager);
+    if(!res.ok){setMsg("pvp-msg",res.msg,"error");}
+    else{
+      const oppName=document.getElementById("pvp-opponent").selectedOptions[0].text;
+      document.getElementById("pvp-result").innerHTML=iWon
+        ?`🎉 <strong>${result.toUpperCase()}!</strong> You beat ${oppName} +<span class="vox-amount">${VOX.fmt(wager)} VOX</span>`
+        :`💀 ${oppName} wins — you lost <span style="color:var(--accent2)">${VOX.fmt(wager)} VOX</span>`;
+    }
+    busy=false;
+    document.getElementById("pvp-heads").disabled=false;document.getElementById("pvp-tails").disabled=false;
+  }
+
+  // ── SLOTS ──
+  async function doSpin() {
+    if(busy)return;
+    const wager=parseInt(document.getElementById("slot-wager").value);
+    if(!wager||wager<1)return setMsg("slot-msg","Enter a bet.","error");
+    if(wager>myBalance)return setMsg("slot-msg","Not enough Vox.","error");
+    busy=true;document.getElementById("spin-btn").disabled=true;
+    document.getElementById("slot-result").innerHTML="🎰";document.getElementById("slot-msg").innerHTML="";
+    for(let i=0;i<3;i++)document.getElementById("r"+i).classList.add("spinning");
+    const final=[0,1,2].map(()=>SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)]);
+    for(let i=0;i<3;i++){await sleep(600+i*400);document.getElementById("r"+i).classList.remove("spinning");document.getElementById("r"+i).textContent=final[i];}
+    await sleep(300);
+    const key=final.join("");
+    let mult=0;
+    if(JACKPOTS[key])mult=JACKPOTS[key];
+    else if(final[0]===final[1]&&final[1]===final[2])mult=2;
+    else if(final[0]===final[1]||final[1]===final[2]||final[0]===final[2])mult=1.5;
+    const res=await VOX.gambleMulti(me.id,wager,mult);
+    if(!res.ok){setMsg("slot-msg",res.msg,"error");}
+    else{
+      const gain=Math.round(wager*mult);
+      let msg=mult>=10?`💎 JACKPOT! ${mult}× — +<span class="vox-amount">${VOX.fmt(gain)} VOX</span> 💎`
+        :mult>=2?`🎉 Win! ${mult}× — +<span class="vox-amount">${VOX.fmt(gain)} VOX</span>`
+        :mult>0?`✨ Small win — +<span class="vox-amount">${VOX.fmt(gain)} VOX</span>`
+        :`💀 No match. Lost <span style="color:var(--accent2)">${VOX.fmt(wager)} VOX</span>`;
+      document.getElementById("slot-result").innerHTML=mult>=5?"🎉":mult>0?"✨":"😢";
+      setMsg("slot-msg",msg,mult>0?"success":"error");
+    }
+    busy=false;document.getElementById("spin-btn").disabled=false;
+  }
+
+  // ── CARD WAR ──
+  function drawCard(){return{rank:RANKS[Math.floor(Math.random()*RANKS.length)],suit:SUITS[Math.floor(Math.random()*SUITS.length)],value:0};}
+  function cardValue(c){return RANKS.indexOf(c.rank);}
+  function renderCard(el,card,winner){
+    const red=["♥","♦"].includes(card.suit)?"red":"";
+    el.className="playing-card "+red+(winner?" winner":"");
+    el.innerHTML=`<div class="rank">${card.rank}${card.suit}</div><div class="suit">${card.suit}</div>`;
+  }
+
+  async function doCardWar() {
+    if(busy)return;
+    const oppId=document.getElementById("card-opponent").value;
+    const wager=parseInt(document.getElementById("card-wager").value);
+    if(!oppId)return setMsg("card-msg","Select an opponent.","error");
+    if(!wager||wager<1)return setMsg("card-msg","Enter a wager.","error");
+    if(wager>myBalance)return setMsg("card-msg","Not enough Vox.","error");
+    busy=true;document.getElementById("draw-btn").disabled=true;
+    document.getElementById("card-table").style.display="";
+    document.getElementById("card-result").innerHTML="";document.getElementById("card-msg").innerHTML="";
+    const myCardEl=document.getElementById("my-card"),oppCardEl=document.getElementById("opp-card");
+    myCardEl.className="playing-card hidden";myCardEl.innerHTML=`<div class="suit">🂠</div>`;
+    oppCardEl.className="playing-card hidden";oppCardEl.innerHTML=`<div class="suit">🂠</div>`;
+    const oppName=document.getElementById("card-opponent").selectedOptions[0].text;
+    document.getElementById("my-label").textContent=me.avatar+" "+me.username;
+    document.getElementById("opp-label").textContent=oppName;
+    await sleep(500);
+    let myCard,oppCard;
+    do{myCard=drawCard();oppCard=drawCard();}while(cardValue(myCard)===cardValue(oppCard));
+    await sleep(400);renderCard(myCardEl,myCard,false);
+    await sleep(500);renderCard(oppCardEl,oppCard,false);
+    await sleep(700);
+    const iWon=cardValue(myCard)>cardValue(oppCard);
+    renderCard(myCardEl,myCard,iWon);renderCard(oppCardEl,oppCard,!iWon);
+    const winnerId=iWon?me.id:oppId,loserId=iWon?oppId:me.id;
+    const res=await VOX.pvpGamble(winnerId,loserId,wager);
+    if(!res.ok){setMsg("card-msg",res.msg,"error");}
+    else{
+      document.getElementById("card-result").innerHTML=iWon?"🏆":"💀";
+      setMsg("card-msg",iWon
+        ?`🎉 Your ${myCard.rank}${myCard.suit} wins! +${VOX.fmt(wager)} VOX`
+        :`💀 ${oppName}'s ${oppCard.rank}${oppCard.suit} wins. -${VOX.fmt(wager)} VOX`
+        ,iWon?"success":"error");
+    }
+    busy=false;document.getElementById("draw-btn").disabled=false;
+  }
+</script>
+</body>
+</html>

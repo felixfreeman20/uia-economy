@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VOX — Admin</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .admin-grid{display:grid;gap:1.5rem;grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
+    .section-title{font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);font-weight:700;margin-bottom:1rem}
+    .user-row{display:flex;align-items:center;gap:0.75rem;padding:0.7rem 0;border-bottom:1px solid rgba(42,42,62,0.5)}
+    .user-row:last-child{border-bottom:none}
+    .user-info{flex:1}
+    .user-name{font-weight:600;font-size:0.9rem}
+    .user-bal{font-family:'DM Mono',monospace;color:var(--gold);font-size:0.85rem}
+    .pending-card{background:rgba(255,209,102,0.05);border:1px solid rgba(255,209,102,0.2)}
+    .pending-badge{display:inline-flex;align-items:center;justify-content:center;background:var(--accent2);color:#fff;font-size:0.7rem;font-weight:700;width:20px;height:20px;border-radius:50%;margin-left:0.4rem}
+    .stats-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1.5rem}
+    .stat-mini{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:0.75rem;text-align:center}
+    .stat-mini-val{font-family:'DM Mono',monospace;font-size:1.3rem}
+    .stat-mini-label{font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em}
+    .pulse{animation:pulse 1.5s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+  </style>
+</head>
+<body>
+<main>
+  <h1 class="page-title">⚙ Admin Panel</h1>
+  <p class="page-sub">Everything updates in real-time — no refresh needed.</p>
+
+  <div class="stats-mini" id="eco-stats">
+    <div class="stat-mini"><div class="stat-mini-val">—</div><div class="stat-mini-label">Users</div></div>
+    <div class="stat-mini"><div class="stat-mini-val">—</div><div class="stat-mini-label">VOX Circulating</div></div>
+    <div class="stat-mini"><div class="stat-mini-val">—</div><div class="stat-mini-label">Active Listings</div></div>
+  </div>
+
+  <div class="admin-grid">
+
+    <!-- PENDING — real-time -->
+    <div class="card pending-card">
+      <div class="section-title">⏳ Pending Approvals <span id="pending-count"></span></div>
+      <div id="pending-list"><div class="spinner"></div></div>
+    </div>
+
+    <!-- MINT / BURN -->
+    <div class="card">
+      <div class="section-title">🪙 Mint / Burn VOX</div>
+      <div class="form-group"><label>User</label><select id="mint-user"><option value="">— loading —</option></select></div>
+      <div class="form-group">
+        <label>Amount</label>
+        <div style="display:flex;gap:0.5rem">
+          <input type="number" id="mint-amount" placeholder="e.g. 500" min="1" style="flex:1">
+          <button class="btn btn-success" onclick="doMint()">+ Mint</button>
+          <button class="btn btn-danger" onclick="doBurn()">− Burn</button>
+        </div>
+      </div>
+      <div class="form-group"><label>Reason (optional)</label><input type="text" id="mint-note" placeholder="e.g. Event reward" maxlength="80"></div>
+      <div id="mint-msg"></div>
+    </div>
+
+    <!-- ALL USERS — real-time -->
+    <div class="card">
+      <div class="section-title">👥 All Users</div>
+      <div id="users-list"><div class="spinner"></div></div>
+    </div>
+
+    <!-- SHOP — real-time -->
+    <div class="card">
+      <div class="section-title">🛍 Shop Listings</div>
+      <div id="shop-list"><div class="spinner"></div></div>
+    </div>
+
+    <!-- TRANSACTIONS — real-time -->
+    <div class="card" style="grid-column:1/-1">
+      <div class="section-title">📜 Recent Transactions <span class="pulse" style="color:var(--accent3);font-size:0.7rem">● LIVE</span></div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>From</th><th>To</th><th>Amount</th><th>Note</th><th>Time</th></tr></thead>
+          <tbody id="tx-body"><tr><td colspan="5"><div class="spinner"></div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script src="../js/core.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+  const me = VOX.requireAdmin();
+
+  function relTime(ts){const d=Date.now()-ts,m=60000,h=3600000,day=86400000;if(d<m)return"just now";if(d<h)return Math.floor(d/m)+"m ago";if(d<day)return Math.floor(d/h)+"h ago";return Math.floor(d/day)+"d ago";}
+  function setMsg(id,msg,type){const el=document.getElementById(id);el.innerHTML=msg?`<div class="alert alert-${type} mb-1">${msg}</div>`:"";if(msg)setTimeout(()=>el.innerHTML="",4000);}
+
+  VOX.init().then(() => {
+    buildNav("admin.html");
+
+    // ── REAL-TIME: pending users ──────────────────────────
+    VOX.onPending(pending => {
+      const count=document.getElementById("pending-count");
+      count.innerHTML=pending.length?`<span class="pending-badge">${pending.length}</span>`:"";
+
+      const el=document.getElementById("pending-list");
+      if(!pending.length){el.innerHTML=`<div class="text-muted text-sm">✓ No pending requests.</div>`;return;}
+      el.innerHTML=pending.map(u=>`
+        <div class="user-row" id="prow-${u.username}">
+          <span style="font-size:1.3rem">${u.avatar}</span>
+          <div class="user-info">
+            <div class="user-name">${u.username}</div>
+            <div class="text-sm text-muted">Requested ${relTime(u.joinedAt)}</div>
+          </div>
+          <button class="btn btn-success btn-sm" onclick="approve('${u.username}')">✓ Approve</button>
+          <button class="btn btn-danger btn-sm" onclick="reject('${u.username}')">✗ Reject</button>
+        </div>`).join("");
+    });
+
+    // ── REAL-TIME: all users ──────────────────────────────
+    VOX.onUsers(users => {
+      const approved=users.filter(u=>!u.isAdmin);
+      const totalVox=approved.reduce((s,u)=>s+u.balance,0);
+
+      // update stats
+      document.getElementById("eco-stats").innerHTML=`
+        <div class="stat-mini"><div class="stat-mini-val">${approved.length}</div><div class="stat-mini-label">Users</div></div>
+        <div class="stat-mini"><div class="stat-mini-val">${VOX.fmt(totalVox)}</div><div class="stat-mini-label">VOX Circulating</div></div>
+        <div class="stat-mini" id="listing-stat"><div class="stat-mini-val">—</div><div class="stat-mini-label">Active Listings</div></div>`;
+
+      // mint dropdown
+      document.getElementById("mint-user").innerHTML=
+        approved.sort((a,b)=>b.balance-a.balance).map(u=>`<option value="${u.id}">${u.avatar} ${u.username} — ⬡${VOX.fmt(u.balance)}</option>`).join("");
+
+      // users list
+      const list=document.getElementById("users-list");
+      if(!approved.length){list.innerHTML=`<div class="empty"><div class="empty-icon">👥</div>No users yet.</div>`;return;}
+      list.innerHTML=approved.sort((a,b)=>b.balance-a.balance).map(u=>`
+        <div class="user-row">
+          <span style="font-size:1.3rem">${u.avatar}</span>
+          <div class="user-info">
+            <div class="user-name">${u.username}</div>
+            <div class="user-bal">⬡ ${VOX.fmt(u.balance)}</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="quickMint('${u.id}','${u.username}')">+ Mint</button>
+        </div>`).join("");
+    });
+
+    // ── REAL-TIME: shop listings ──────────────────────────
+    VOX.onShop(listings => {
+      const active=listings.filter(i=>!i.sold);
+      const el=document.getElementById("listing-stat");
+      if(el)el.innerHTML=`<div class="stat-mini-val">${active.length}</div><div class="stat-mini-label">Active Listings</div>`;
+
+      const list=document.getElementById("shop-list");
+      if(!listings.length){list.innerHTML=`<div class="text-muted text-sm">No listings.</div>`;return;}
+      list.innerHTML=listings.slice(0,15).map(item=>`
+        <div class="user-row">
+          <div class="user-info">
+            <div class="user-name" style="font-size:0.85rem">${item.title}</div>
+            <div class="text-sm text-muted">by ${item.sellerId} · ⬡${VOX.fmt(item.price)} ${item.sold?'<span class="badge badge-red">SOLD</span>':''}</div>
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="adminDel('${item._docId}')">Del</button>
+        </div>`).join("");
+    });
+
+    // ── REAL-TIME: transactions ───────────────────────────
+    VOX.onTx(null, txs => {
+      const tbody=document.getElementById("tx-body");
+      if(!txs.length){tbody.innerHTML=`<tr><td colspan="5" class="text-muted text-sm">No transactions yet.</td></tr>`;return;}
+      tbody.innerHTML=txs.map(t=>`
+        <tr>
+          <td>${t.from}</td><td>${t.to}</td>
+          <td class="vox-amount">⬡ ${VOX.fmt(t.amount)}</td>
+          <td class="text-muted text-sm">${t.note||'—'}</td>
+          <td class="text-muted text-sm mono">${relTime(t.ts)}</td>
+        </tr>`).join("");
+    }, 50);
+  });
+
+  async function approve(username) {
+    const btn=document.querySelector(`#prow-${username} .btn-success`);
+    if(btn)btn.disabled=true;
+    const res=await VOX.approveUser(username);
+    if(res.ok) setMsg("mint-msg",`✓ ${username} approved and given 100 VOX!`,"success");
+    else setMsg("mint-msg",res.msg,"error");
+  }
+
+  async function reject(username) {
+    if(!confirm(`Reject ${username}?`))return;
+    await VOX.rejectUser(username);
+  }
+
+  async function doMint() {
+    const userId=document.getElementById("mint-user").value;
+    const amt=parseInt(document.getElementById("mint-amount").value);
+    const note=document.getElementById("mint-note").value||"Admin mint";
+    if(!userId)return setMsg("mint-msg","Select a user.","error");
+    if(!amt||amt<1)return setMsg("mint-msg","Enter a valid amount.","error");
+    await VOX.mint(userId,amt,note);
+    setMsg("mint-msg",`Minted ${VOX.fmt(amt)} VOX to ${userId}.`,"success");
+    document.getElementById("mint-amount").value="";document.getElementById("mint-note").value="";
+  }
+
+  async function doBurn() {
+    const userId=document.getElementById("mint-user").value;
+    const amt=parseInt(document.getElementById("mint-amount").value);
+    const note=document.getElementById("mint-note").value||"Admin burn";
+    if(!userId)return setMsg("mint-msg","Select a user.","error");
+    if(!amt||amt<1)return setMsg("mint-msg","Enter a valid amount.","error");
+    if(!confirm(`Burn ${VOX.fmt(amt)} VOX from ${userId}?`))return;
+    await VOX.burn(userId,amt,note);
+    setMsg("mint-msg",`Burned ${VOX.fmt(amt)} VOX from ${userId}.`,"success");
+    document.getElementById("mint-amount").value="";
+  }
+
+  async function quickMint(userId,username){
+    const amt=parseInt(prompt(`How many VOX to give ${username}?`));
+    if(!amt||amt<1)return;
+    const note=prompt("Reason (optional):")||"Admin mint";
+    await VOX.mint(userId,amt,note);
+    setMsg("mint-msg",`Minted ${VOX.fmt(amt)} VOX to ${username}.`,"success");
+  }
+
+  async function adminDel(docId){
+    if(!confirm("Delete this listing?"))return;
+    await VOX.deleteItem(docId,me.id);
+  }
+</script>
+</body>
+</html>

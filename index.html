@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VOX — The Economy</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; }
+    .hero-title { font-size:clamp(3rem,10vw,6rem); font-weight:800; letter-spacing:-3px; line-height:1; background:linear-gradient(135deg,#7c5cfc,#fc5c7d,#ffd166); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+    .hero-sub { color:var(--muted); font-size:1rem; margin-top:0.5rem; letter-spacing:0.1em; text-transform:uppercase; text-align:center; }
+    .auth-box { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:2rem; width:100%; max-width:400px; margin-top:2rem; }
+    .tabs { display:flex; gap:0; margin-bottom:1.5rem; background:var(--bg2); border-radius:8px; padding:3px; }
+    .tab { flex:1; text-align:center; padding:0.5rem; border-radius:6px; cursor:pointer; font-weight:700; font-size:0.85rem; letter-spacing:0.05em; text-transform:uppercase; color:var(--muted); transition:all 0.2s; }
+    .tab.active { background:var(--accent); color:#fff; }
+    .avatar-row { display:flex; gap:0.5rem; flex-wrap:wrap; }
+    .avatar-opt { font-size:1.5rem; cursor:pointer; padding:0.3rem; border-radius:8px; border:2px solid transparent; transition:border 0.15s; }
+    .avatar-opt.selected { border-color:var(--accent); }
+  </style>
+</head>
+<body>
+<div style="text-align:center">
+  <div class="hero-title">VOX</div>
+  <div class="hero-sub">The Friend Group Economy</div>
+</div>
+
+<div class="auth-box fade-in">
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('login')">Login</div>
+    <div class="tab" onclick="showTab('register')">Register</div>
+  </div>
+
+  <div id="div-login">
+    <div class="form-group">
+      <label>Username</label>
+      <input id="l-user" type="text" placeholder="your username">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input id="l-pass" type="password" placeholder="••••••••">
+    </div>
+    <div id="msg"></div>
+    <button class="btn btn-primary w-full" onclick="doLogin()">Enter the Economy →</button>
+  </div>
+
+  <div id="div-register" style="display:none">
+    <div class="form-group">
+      <label>Username</label>
+      <input id="r-user" type="text" placeholder="choose a username" maxlength="20">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input id="r-pass" type="password" placeholder="••••••••">
+    </div>
+    <div class="form-group">
+      <label>Pick your avatar</label>
+      <div class="avatar-row" id="avatar-row"></div>
+    </div>
+    <div id="msg2"></div>
+    <button class="btn btn-primary w-full" onclick="doRegister()">Request Account →</button>
+    <p class="text-muted text-sm mt-1" style="text-align:center">Admin must approve before you can log in.</p>
+  </div>
+</div>
+
+<script src="js/core.js"></script>
+<script>
+  const AVATARS = ["🙂","😎","🤑","🦊","🐺","🐸","👾","🎭","🤖","🦁","🐉","🌙","⚡","🔥","💎","🃏"];
+  let selectedAvatar = AVATARS[0];
+
+  const row = document.getElementById("avatar-row");
+  row.innerHTML = AVATARS.map((a,i) =>
+    `<span class="avatar-opt ${i===0?'selected':''}" onclick="pickAvatar('${a}',this)">${a}</span>`
+  ).join("");
+
+  function pickAvatar(a, el) {
+    selectedAvatar = a;
+    document.querySelectorAll(".avatar-opt").forEach(e => e.classList.remove("selected"));
+    el.classList.add("selected");
+  }
+
+  function showTab(tab) {
+    document.getElementById("div-login").style.display = tab==="login" ? "" : "none";
+    document.getElementById("div-register").style.display = tab==="register" ? "" : "none";
+    document.querySelectorAll(".tab").forEach((t,i) => t.classList.toggle("active",(i===0)===(tab==="login")));
+  }
+
+  function setMsg(id, msg, type) {
+    document.getElementById(id).innerHTML = msg ? `<div class="alert alert-${type}">${msg}</div>` : "";
+  }
+
+  async function doLogin() {
+    const user = document.getElementById("l-user").value.trim();
+    const pass = document.getElementById("l-pass").value;
+    setMsg("msg","Logging in…","info");
+    const res = await VOX.login(user, pass);
+    if (res.ok) location.href = "pages/dashboard.html";
+    else setMsg("msg", res.msg, "error");
+  }
+
+  async function doRegister() {
+    const user = document.getElementById("r-user").value.trim();
+    const pass = document.getElementById("r-pass").value;
+    if (!user || !pass) return setMsg("msg2","Fill in all fields.","error");
+    setMsg("msg2","Sending request…","info");
+    const res = await VOX.register(user, pass, selectedAvatar);
+    setMsg("msg2", res.msg, res.ok ? "success" : "error");
+  }
+
+  // init firebase on load
+  VOX.init().then(() => {
+    if (VOX.currentUser()) location.href = "pages/dashboard.html";
+  });
+
+  document.addEventListener("keydown", e => { if (e.key==="Enter") doLogin(); });
+</script>
+</body>
+</html>

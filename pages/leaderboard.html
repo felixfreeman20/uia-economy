@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VOX — Rich List</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .podium{display:flex;align-items:flex-end;justify-content:center;gap:1rem;margin:2rem 0}
+    .podium-block{display:flex;flex-direction:column;align-items:center;gap:0.5rem;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem 1.5rem}
+    .podium-block.first{border-color:var(--gold);box-shadow:0 0 20px rgba(255,209,102,0.2);min-height:180px}
+    .podium-block.second{min-height:150px;border-color:rgba(192,192,192,0.4)}
+    .podium-block.third{min-height:120px;border-color:rgba(205,127,50,0.4)}
+    .lb-row{display:flex;align-items:center;gap:1rem;padding:0.9rem 1rem;border-bottom:1px solid rgba(42,42,62,0.5);border-radius:8px;transition:background 0.15s}
+    .lb-row:hover{background:rgba(124,92,252,0.05)}
+    .lb-row.me{background:rgba(124,92,252,0.08);border:1px solid rgba(124,92,252,0.2)}
+    .lb-num{font-family:'DM Mono',monospace;font-size:0.9rem;color:var(--muted);width:28px;text-align:right}
+    .lb-bar-wrap{width:80px;background:var(--bg2);border-radius:4px;height:6px;overflow:hidden}
+    .lb-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px}
+  </style>
+</head>
+<body>
+<main>
+  <h1 class="page-title">Rich List</h1>
+  <p class="page-sub">The top Vox holders — updated live.</p>
+  <div id="podium-wrap"></div>
+  <div class="card fade-in"><div id="lb-list"><div class="spinner"></div></div></div>
+</main>
+<script src="../js/core.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+  const me = VOX.requireLogin();
+
+  VOX.init().then(() => {
+    buildNav("leaderboard.html");
+    VOX.onUsers(users => {
+      const lb = users.filter(u=>!u.isAdmin).sort((a,b)=>b.balance-a.balance);
+      const max = lb[0]?.balance||1;
+
+      // podium
+      const podium=document.getElementById("podium-wrap");
+      if(lb.length>=1){
+        const order=lb.length>=3?[lb[1],lb[0],lb[2]]:lb.length===2?[null,lb[0],lb[1]]:[null,lb[0],null];
+        const cls=["second","first","third"],medals=["🥈","🥇","🥉"];
+        podium.innerHTML=`<div class="podium">`+order.map((u,i)=>u?`
+          <div class="podium-block ${cls[i]}">
+            <div style="font-size:1.5rem">${medals[i]}</div>
+            <div style="font-size:2rem">${u.avatar}</div>
+            <div style="font-weight:700;font-size:0.9rem">${u.username}</div>
+            <div style="font-family:'DM Mono',monospace;color:var(--gold);font-size:0.9rem">⬡ ${VOX.fmt(u.balance)}</div>
+          </div>`:""
+        ).join("")+`</div>`;
+      }
+
+      // full list
+      const list=document.getElementById("lb-list");
+      if(!lb.length){list.innerHTML=`<div class="empty"><div class="empty-icon">📊</div>No users yet.</div>`;return;}
+      list.innerHTML=lb.map((u,i)=>`
+        <div class="lb-row ${u.id===me.id?'me':''}">
+          <div class="lb-num">${i+1}</div>
+          <div style="font-size:1.4rem">${u.avatar}</div>
+          <div style="flex:1;font-weight:600">${u.username} ${u.id===me.id?'<span class="badge badge-purple">You</span>':''}</div>
+          <div style="flex:1"><div class="lb-bar-wrap"><div class="lb-bar" style="width:${Math.round(u.balance/max*100)}%"></div></div></div>
+          <div style="font-family:'DM Mono',monospace;color:var(--gold)">⬡ ${VOX.fmt(u.balance)}</div>
+        </div>`).join("");
+    });
+  });
+</script>
+</body>
+</html>

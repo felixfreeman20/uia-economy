@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VOX — Send</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .send-card{max-width:500px;margin:0 auto}
+    .user-pill{display:flex;align-items:center;gap:0.5rem;padding:0.6rem 0.8rem;background:var(--bg2);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s}
+    .user-pill:hover{border-color:var(--accent)}
+    .user-pill.selected{border-color:var(--accent);background:rgba(124,92,252,0.1)}
+    .users-grid{display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem}
+    .confirm-box{background:var(--bg3);border:1px solid rgba(124,92,252,0.3);border-radius:var(--radius);padding:1.2rem;text-align:center;margin-bottom:1rem}
+    .confirm-amount{font-family:'DM Mono',monospace;font-size:2rem;color:var(--gold)}
+    .qbet{padding:0.25rem 0.7rem;border-radius:6px;border:1px solid var(--border);background:var(--bg2);cursor:pointer;font-size:0.8rem;font-family:'DM Mono',monospace;color:var(--muted);transition:all 0.15s}
+    .qbet:hover{border-color:var(--gold);color:var(--gold)}
+  </style>
+</head>
+<body>
+<main>
+  <h1 class="page-title">Send Vox</h1>
+  <p class="page-sub">Transfer currency to anyone in the economy.</p>
+  <div class="send-card">
+    <div class="card fade-in">
+      <div class="form-group">
+        <label>To</label>
+        <div class="users-grid" id="users-grid"><div class="spinner"></div></div>
+        <input type="text" id="to-input" placeholder="or type a username…" oninput="filterUsers()">
+      </div>
+      <div class="form-group">
+        <label>Amount (VOX)</label>
+        <input type="number" id="amount" placeholder="0" min="1" oninput="updateConfirm()">
+        <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+          <span class="qbet" onclick="setAmt(10)">10</span>
+          <span class="qbet" onclick="setAmt(50)">50</span>
+          <span class="qbet" onclick="setAmt(100)">100</span>
+          <span class="qbet" onclick="setAmt('half')">Half</span>
+          <span class="qbet" onclick="setAmt('all')">All in</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Note (optional)</label>
+        <input type="text" id="note" placeholder="what's this for?" maxlength="80">
+      </div>
+      <div id="confirm-box" style="display:none" class="confirm-box">
+        Sending <span class="confirm-amount" id="conf-amt">0</span> VOX to <strong id="conf-to">—</strong>
+      </div>
+      <div id="msg"></div>
+      <button class="btn btn-primary w-full" id="send-btn" onclick="doSend()">Send Vox ↗</button>
+    </div>
+    <div class="card mt-2">
+      <div style="font-family:'DM Mono',monospace;font-size:2rem;color:var(--gold)" id="my-balance">—</div>
+      <div class="text-muted text-sm">VOX available</div>
+    </div>
+  </div>
+</main>
+<script src="../js/core.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+  const me = VOX.requireLogin();
+  let selectedUser = null;
+  let myBalance = 0;
+
+  VOX.init().then(async () => {
+    buildNav("send.html");
+    const u = await VOX.refreshUser();
+    myBalance = u.balance;
+    document.getElementById("my-balance").textContent = VOX.fmt(u.balance);
+
+    // live balance
+    VOX.onUsers(users => {
+      const me2 = users.find(x => x.id === u.id);
+      if(me2){ myBalance=me2.balance; document.getElementById("my-balance").textContent=VOX.fmt(me2.balance); }
+    });
+
+    const all = await VOX.allUsers();
+    const others = all.filter(x => x.id !== u.id && !x.isAdmin);
+    const grid = document.getElementById("users-grid");
+    grid.innerHTML = others.map(usr =>
+      `<div class="user-pill" id="pill-${usr.id}" onclick="selectUser('${usr.id}','${usr.username}','${usr.avatar}')">
+        <span>${usr.avatar}</span><span style="font-size:0.85rem;font-weight:600">${usr.username}</span>
+      </div>`
+    ).join("") || '<div class="text-muted text-sm">No other users yet.</div>';
+  });
+
+  function setAmt(v) {
+    if(v==="half") v=Math.floor(myBalance/2);
+    else if(v==="all") v=myBalance;
+    document.getElementById("amount").value=v;
+    updateConfirm();
+  }
+
+  function filterUsers() {
+    const q=document.getElementById("to-input").value.toLowerCase();
+    document.querySelectorAll(".user-pill").forEach(p=>{p.style.display=p.textContent.toLowerCase().includes(q)?"":"none";});
+    selectedUser=null; updateConfirm();
+  }
+
+  function selectUser(id,name,avatar) {
+    selectedUser={id,name,avatar};
+    document.querySelectorAll(".user-pill").forEach(p=>p.classList.remove("selected"));
+    document.getElementById("pill-"+id)?.classList.add("selected");
+    document.getElementById("to-input").value="";
+    updateConfirm();
+  }
+
+  function updateConfirm() {
+    const amt=parseInt(document.getElementById("amount").value)||0;
+    const toName=selectedUser?.name||document.getElementById("to-input").value.trim();
+    const box=document.getElementById("confirm-box");
+    if(amt>0&&toName){box.style.display="";document.getElementById("conf-amt").textContent=VOX.fmt(amt);document.getElementById("conf-to").textContent=toName;}
+    else box.style.display="none";
+  }
+
+  function setMsg(msg,type){document.getElementById("msg").innerHTML=msg?`<div class="alert alert-${type} mb-2">${msg}</div>`:"";}
+
+  async function doSend() {
+    const toId=selectedUser?.id||document.getElementById("to-input").value.trim().toLowerCase();
+    const amt=parseInt(document.getElementById("amount").value);
+    const note=document.getElementById("note").value.trim();
+    if(!toId) return setMsg("Select or enter a recipient.","error");
+    if(!amt||amt<1) return setMsg("Enter a valid amount.","error");
+    const btn=document.getElementById("send-btn");
+    btn.disabled=true; setMsg("Sending…","info");
+    const res=await VOX.transfer(me.id,toId,amt,note);
+    btn.disabled=false;
+    if(res.ok){
+      setMsg(`Sent ${VOX.fmt(amt)} VOX to ${toId}!`,"success");
+      document.getElementById("amount").value="";document.getElementById("note").value="";
+      selectedUser=null;document.querySelectorAll(".user-pill").forEach(p=>p.classList.remove("selected"));
+      updateConfirm();
+    } else setMsg(res.msg,"error");
+  }
+</script>
+</body>
+</html>
